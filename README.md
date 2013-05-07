@@ -11,9 +11,9 @@ To install:
 
 To use:
 * insert the plugin into the urdf of your model by adding the tags:
-    <gazebo>
-     <plugin filename="libControllerPlugin.so" name="robot_plugin" />
-    </gazebo>
+    \<gazebo\>
+     \<plugin filename="libControllerPlugin.so" name="robot_plugin" /\>
+    \</gazebo\>
 
 Interface:
 RobotController supports PID joint position control and feedforward effort control
