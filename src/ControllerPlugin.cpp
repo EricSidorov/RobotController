@@ -157,10 +157,11 @@ void ControllerPlugin::Load(physics::ModelPtr _parent,
   {
     if (this->jointNames[i].find(str1) != std::string::npos) {
       this->AnkleJoints.push_back(this->model->GetJoint(this->jointNames[i]));
-      std::cout << this->AnkleJoints.back()->GetName();
+      std::cout << "Added ankle force/torque sensor at joint: " << this->AnkleJoints.back()->GetName() << "\n";
     }
     if (this->jointNames[i].find(str2) != std::string::npos) {
       this->WristJoints.push_back(this->model->GetJoint(this->jointNames[i]));
+      std::cout << "Added wrist force/torque sensor at joint: " << this->AnkleJoints.back()->GetName() << "\n";
     }
   }
 
@@ -408,10 +409,18 @@ void ControllerPlugin::DeferredLoad()
         &ControllerPlugin::ResetControls, this, _1, _2),
         ros::VoidPtr(), &this->rosQueue);
 
+    ros::AdvertiseServiceOptions resetToICAso =
+    ros::AdvertiseServiceOptions::create<RobotController::ResetIC>(
+      this->model->GetName() + "/reset_IC", boost::bind(
+        &ControllerPlugin::ResetToIC, this, _1, _2),
+        ros::VoidPtr(), &this->rosQueue);
+
   
   this->resetControlsService = this->rosNode->advertiseService(
     resetControlsAso);
 
+  this->resetToICService = this->rosNode->advertiseService(
+    resetToICAso);
   
 }
 
@@ -442,6 +451,31 @@ bool ControllerPlugin::ResetControls(RobotController::ResetControls::Request &_r
       static_cast<RobotController::RobotCommand::ConstPtr>(&(_req.robot_command)));
   }
 
+  return _res.success;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool ControllerPlugin::ResetToIC(RobotController::ResetIC::Request &_req,
+  RobotController::ResetIC::Response &_res)
+{
+  boost::mutex::scoped_lock lock(this->mutex);
+
+  // physics::PhysicsEnginePtr Eng;
+  // Eng = this->world->GetPhysicsEngine();
+  this->model->Reset();
+  for (unsigned int i = 0; i < this->joints.size(); ++i)
+  {
+    std::string JointName = this->model->GetName()+"::"+this->joints[i]->GetName();
+    this->model->SetJointPosition(JointName,_req.joint_pos[i]);
+    this->joints[i]->SetVelocity(0,_req.joint_vel[i]);
+    this->joints[i]->Update();
+  }
+  math::Pose pose(_req.pose[0],_req.pose[1],_req.pose[2],_req.pose[3],_req.pose[4],_req.pose[5]);
+  this->model->SetLinkWorldPose(pose, _req.reference_link);
+  
+  _res.success = true;
+  _res.status_message = "success";
+  
   return _res.success;
 }
 

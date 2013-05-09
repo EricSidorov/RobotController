@@ -1,0 +1,11 @@
+# permissible values for mode
+
+string reference_link      		    # Reference link for translation.
+float32[] pose		 				# Position for translation.
+
+float32[] joint_pos 				# Joint angle for all joints
+float32[] joint_vel 				# Joint angular velocity for all joints
+
+---
+bool success
+string status_message

@@ -197,3 +197,7 @@ class JointCommands_msg_handler(object):
               rospy.sleep(dt)
         else:
             print 'position command legth doest fit'
+
+    def __del__(self):
+        self._compub.unregister()
+

@@ -51,6 +51,7 @@
 #include <gazebo/sensors/Sensor.hh>
 
 #include <RobotController/ResetControls.h>
+#include <RobotController/ResetIC.h>
 #include <RobotController/ControllerStatistics.h>
 
 // don't use these to control
@@ -93,6 +94,9 @@ namespace gazebo
     /// \param[in] _res Outgoing ros service response
     private: bool ResetControls(RobotController::ResetControls::Request &_req,
       RobotController::ResetControls::Response &_res);
+
+    private: bool ResetToIC(RobotController::ResetIC::Request &_req,
+      RobotController::ResetIC::Response &_res);
 
     /// \brief: thread out Load function with
     /// with anything that might be blocking.
@@ -191,6 +195,7 @@ namespace gazebo
 
     /// \brief ros service to reset controls internal states
     private: ros::ServiceServer resetControlsService;
+    private: ros::ServiceServer resetToICService;
 
     /// \brief Conversion functions
     // private: inline math::Pose ToPose(const geometry_msgs::Pose &_pose) const
