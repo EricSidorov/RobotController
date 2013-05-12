@@ -48,6 +48,7 @@
 #include <gazebo/sensors/SensorManager.hh>
 #include <gazebo/sensors/SensorTypes.hh>
 #include <gazebo/sensors/ImuSensor.hh>
+#include <gazebo/sensors/ContactSensor.hh>
 #include <gazebo/sensors/Sensor.hh>
 
 #include <RobotController/ResetControls.h>
@@ -64,8 +65,32 @@
 
 #include "PubQueue.h"
 
+class MyContactSensor // : gazebo::sensors::ContactSensor
+{
+    /// \brief Constructor
+    public: MyContactSensor();
+
+    /// \brief Destructor
+    public: virtual ~MyContactSensor();
+
+    /// \brief connected by ContactUpdateConnection, called when contact
+    /// sensor update
+    public: void OnContactUpdate();
+
+    public: std::string Name;
+    public: gazebo::sensors::ContactSensorPtr SensorPtr;
+    // public: boost::shared_ptr<gazebo::sensors::ContactSensorPtr> SensorPtr;
+    public: gazebo::event::ConnectionPtr ContactUpdateConnection;
+    public: ros::Publisher pubContact;
+    public: PubQueue<geometry_msgs::WrenchStamped>::Ptr pubContactQueue;
+
+    private: int LastNumConnections;
+
+};
+
 namespace gazebo
 {
+
   class ControllerPlugin : public ModelPlugin
   {
     /// \brief Constructor
@@ -111,6 +136,9 @@ namespace gazebo
     /// Throttle update rate
     private: common::Time lastControllerStatisticsTime;
     private: double statsUpdateRate;
+
+    // Contact sensors
+    private: std::vector<MyContactSensor*> ContactSensors;
 
     // Force torque sensors at ankles
     private: std::vector<physics::JointPtr> AnkleJoints;
@@ -296,5 +324,6 @@ namespace gazebo
     // ros publish multi queue, prevents publish() blocking
     private: PubMultiQueue pmq;
   };
+
 }
 #endif

@@ -178,13 +178,23 @@ void ControllerPlugin::Load(physics::ModelPtr _parent,
   
   sensors::Sensor_V Sensors = sensors::SensorManager::Instance()->GetSensors();
   std::string imustr ("imu_sensor");
+  std::string contstr ("contact_sensor");
   for (sensors::Sensor_V::iterator it = Sensors.begin(); it != Sensors.end(); ++it) {
     if ( (*it)->GetName().find(imustr) != std::string::npos ) {
       this->imuSensor = boost::shared_dynamic_cast<sensors::ImuSensor>(*it);
     }
+    if ( (*it)->GetName().find(contstr) != std::string::npos ) {
+      this->ContactSensors.push_back(new MyContactSensor());
+      this->ContactSensors.back()->Name = (*it)->GetName();
+      this->ContactSensors.back()->SensorPtr =
+        boost::shared_dynamic_cast<sensors::ContactSensor>(*it);
+      std::cout << "Added contact sensor " << (*it)->GetName() << "\n" << "\n";
+    }
   }
   if (!this->imuSensor)
     gzerr << "imu_sensor not found\n" << "\n";
+  if (this->ContactSensors.empty())
+    std::cout << "no contact sensor found\n" << "\n";
 
   // ros callback queue for processing subscription
   this->deferredLoadThread = boost::thread(
@@ -343,6 +353,18 @@ void ControllerPlugin::DeferredLoad()
   this->pubControllerStatistics =
     this->rosNode->advertise<RobotController::ControllerStatistics>(
     this->model->GetName() + "/controller_statistics", 10);
+
+  for (std::vector<MyContactSensor*>::iterator it = this->ContactSensors.begin(); it != this->ContactSensors.end(); ++it) {
+    (*it)->pubContact =
+      this->rosNode->advertise<geometry_msgs::WrenchStamped>(
+        this->model->GetName()+"/"+(*it)->Name, 10);
+    (*it)->pubContactQueue = this->pmq.addPub<geometry_msgs::WrenchStamped>();
+
+    // on contact
+    (*it)->ContactUpdateConnection = (*it)->SensorPtr->ConnectUpdated(
+       boost::bind(&MyContactSensor::OnContactUpdate, (*it)));
+
+  }
 
   // ros topic subscribtions
   ros::SubscribeOptions pauseSo =
@@ -746,4 +768,68 @@ void ControllerPlugin::RosQueueThread()
     this->rosQueue.callAvailable(ros::WallDuration(timeout));
   }
 }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+MyContactSensor::MyContactSensor()
+{
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+MyContactSensor::~MyContactSensor()
+{
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void MyContactSensor::OnContactUpdate()
+{
+  // Get all the contacts.
+  gazebo::msgs::Contacts contacts;
+  contacts = this->SensorPtr->GetContacts();
+
+  geometry_msgs::WrenchStamped msg;
+  gazebo::math::Vector3 fTotal;
+  gazebo::math::Vector3 tTotal;
+
+  if (contacts.contact_size() == 0 && this->LastNumConnections!=0) {
+    std::cout << "Disconnected" << "\n";
+  }
+  if (contacts.contact_size() > 0 && this->LastNumConnections==0) {
+    std::cout << "Connected" << "\n";
+  }
+  for (int i = 0; i < contacts.contact_size(); ++i)
+  {
+    msg.header.stamp = ros::Time(contacts.contact(i).time().sec(),
+                                 contacts.contact(i).time().nsec());
+    msg.header.frame_id = this->Name;
+
+    // common::Time contactTime(contacts.contact(i).time().sec(),
+    //                          contacts.contact(i).time().nsec());
+    fTotal.Set(0, 0, 0);
+    tTotal.Set(0, 0, 0);
+    for (int j = 0; j < contacts.contact(i).position_size(); ++j)
+    {
+      fTotal += gazebo::math::Vector3(
+                            contacts.contact(i).wrench(j).body_1_force().x(),
+                            contacts.contact(i).wrench(j).body_1_force().y(),
+                            contacts.contact(i).wrench(j).body_1_force().z());
+      tTotal += gazebo::math::Vector3(
+                            contacts.contact(i).wrench(j).body_1_torque().x(),
+                            contacts.contact(i).wrench(j).body_1_torque().y(),
+                            contacts.contact(i).wrench(j).body_1_torque().z());
+    }
+    msg.wrench.force.x = fTotal.x;
+    msg.wrench.force.y = fTotal.y;
+    msg.wrench.force.z = fTotal.z;
+    msg.wrench.torque.x = tTotal.x;
+    msg.wrench.torque.y = tTotal.y;
+    msg.wrench.torque.z = tTotal.z;
+    this->pubContactQueue->push(msg, this->pubContact);
+  }
+  this->LastNumConnections=contacts.contact_size();
 }
