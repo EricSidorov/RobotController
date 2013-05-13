@@ -48,9 +48,11 @@
 #include <gazebo/sensors/SensorManager.hh>
 #include <gazebo/sensors/SensorTypes.hh>
 #include <gazebo/sensors/ImuSensor.hh>
+#include <gazebo/sensors/ContactSensor.hh>
 #include <gazebo/sensors/Sensor.hh>
 
 #include <RobotController/ResetControls.h>
+#include <RobotController/ResetIC.h>
 #include <RobotController/ControllerStatistics.h>
 
 // don't use these to control
@@ -63,8 +65,32 @@
 
 #include "PubQueue.h"
 
+class MyContactSensor // : gazebo::sensors::ContactSensor
+{
+    /// \brief Constructor
+    public: MyContactSensor();
+
+    /// \brief Destructor
+    public: virtual ~MyContactSensor();
+
+    /// \brief connected by ContactUpdateConnection, called when contact
+    /// sensor update
+    public: void OnContactUpdate();
+
+    public: std::string Name;
+    public: gazebo::sensors::ContactSensorPtr SensorPtr;
+    // public: boost::shared_ptr<gazebo::sensors::ContactSensorPtr> SensorPtr;
+    public: gazebo::event::ConnectionPtr ContactUpdateConnection;
+    public: ros::Publisher pubContact;
+    public: PubQueue<geometry_msgs::WrenchStamped>::Ptr pubContactQueue;
+
+    private: int LastNumConnections;
+
+};
+
 namespace gazebo
 {
+
   class ControllerPlugin : public ModelPlugin
   {
     /// \brief Constructor
@@ -94,6 +120,9 @@ namespace gazebo
     private: bool ResetControls(RobotController::ResetControls::Request &_req,
       RobotController::ResetControls::Response &_res);
 
+    private: bool ResetToIC(RobotController::ResetIC::Request &_req,
+      RobotController::ResetIC::Response &_res);
+
     /// \brief: thread out Load function with
     /// with anything that might be blocking.
     private: void DeferredLoad();
@@ -107,6 +136,9 @@ namespace gazebo
     /// Throttle update rate
     private: common::Time lastControllerStatisticsTime;
     private: double statsUpdateRate;
+
+    // Contact sensors
+    private: std::vector<MyContactSensor*> ContactSensors;
 
     // Force torque sensors at ankles
     private: std::vector<physics::JointPtr> AnkleJoints;
@@ -191,6 +223,7 @@ namespace gazebo
 
     /// \brief ros service to reset controls internal states
     private: ros::ServiceServer resetControlsService;
+    private: ros::ServiceServer resetToICService;
 
     /// \brief Conversion functions
     // private: inline math::Pose ToPose(const geometry_msgs::Pose &_pose) const
@@ -291,5 +324,6 @@ namespace gazebo
     // ros publish multi queue, prevents publish() blocking
     private: PubMultiQueue pmq;
   };
+
 }
 #endif
