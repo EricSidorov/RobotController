@@ -356,9 +356,9 @@ void ControllerPlugin::DeferredLoad()
 
   for (std::vector<MyContactSensor*>::iterator it = this->ContactSensors.begin(); it != this->ContactSensors.end(); ++it) {
     (*it)->pubContact =
-      this->rosNode->advertise<geometry_msgs::WrenchStamped>(
+      this->rosNode->advertise<std_msgs::Int32>(
         this->model->GetName()+"/"+(*it)->Name, 10);
-    (*it)->pubContactQueue = this->pmq.addPub<geometry_msgs::WrenchStamped>();
+    (*it)->pubContactQueue = this->pmq.addPub<std_msgs::Int32>();
 
     // on contact
     (*it)->ContactUpdateConnection = (*it)->SensorPtr->ConnectUpdated(
@@ -791,45 +791,18 @@ void MyContactSensor::OnContactUpdate()
   // Get all the contacts.
   gazebo::msgs::Contacts contacts;
   contacts = this->SensorPtr->GetContacts();
-
-  geometry_msgs::WrenchStamped msg;
-  gazebo::math::Vector3 fTotal;
-  gazebo::math::Vector3 tTotal;
-
+  std_msgs::Int32 msg;
+  // std::cout << this->Name << "contact update " << contacts.contact_size()<<"\n";
   if (contacts.contact_size() == 0 && this->LastNumConnections!=0) {
+    msg.data = 0;
     std::cout << "Disconnected" << "\n";
-  }
-  if (contacts.contact_size() > 0 && this->LastNumConnections==0) {
-    std::cout << "Connected" << "\n";
-  }
-  for (int i = 0; i < contacts.contact_size(); ++i)
-  {
-    msg.header.stamp = ros::Time(contacts.contact(i).time().sec(),
-                                 contacts.contact(i).time().nsec());
-    msg.header.frame_id = this->Name;
-
-    // common::Time contactTime(contacts.contact(i).time().sec(),
-    //                          contacts.contact(i).time().nsec());
-    fTotal.Set(0, 0, 0);
-    tTotal.Set(0, 0, 0);
-    for (int j = 0; j < contacts.contact(i).position_size(); ++j)
-    {
-      fTotal += gazebo::math::Vector3(
-                            contacts.contact(i).wrench(j).body_1_force().x(),
-                            contacts.contact(i).wrench(j).body_1_force().y(),
-                            contacts.contact(i).wrench(j).body_1_force().z());
-      tTotal += gazebo::math::Vector3(
-                            contacts.contact(i).wrench(j).body_1_torque().x(),
-                            contacts.contact(i).wrench(j).body_1_torque().y(),
-                            contacts.contact(i).wrench(j).body_1_torque().z());
-    }
-    msg.wrench.force.x = fTotal.x;
-    msg.wrench.force.y = fTotal.y;
-    msg.wrench.force.z = fTotal.z;
-    msg.wrench.torque.x = tTotal.x;
-    msg.wrench.torque.y = tTotal.y;
-    msg.wrench.torque.z = tTotal.z;
     this->pubContactQueue->push(msg, this->pubContact);
   }
+  if (contacts.contact_size() > 0 && this->LastNumConnections==0) {
+    msg.data = 1;
+    std::cout << "Connected" << "\n";
+    this->pubContactQueue->push(msg, this->pubContact);
+  }
+
   this->LastNumConnections=contacts.contact_size();
 }
