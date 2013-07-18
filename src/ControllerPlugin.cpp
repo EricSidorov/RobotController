@@ -774,7 +774,8 @@ void ControllerPlugin::RosQueueThread()
 ////////////////////////////////////////////////////////////////////////////////
 MyContactSensor::MyContactSensor()
 {
-
+  this->state = 0;
+  this->count = 0;
 }
 
 
@@ -792,17 +793,33 @@ void MyContactSensor::OnContactUpdate()
   gazebo::msgs::Contacts contacts;
   contacts = this->SensorPtr->GetContacts();
   std_msgs::Int32 msg;
-  // std::cout << this->Name << "contact update " << contacts.contact_size()<<"\n";
-  if (contacts.contact_size() == 0 && this->LastNumConnections!=0) {
-    msg.data = 0;
-    std::cout << "Disconnected" << "\n";
-    this->pubContactQueue->push(msg, this->pubContact);
+  if ((this->state == 0 && contacts.contact_size() != 0)||(this->state == 1 && contacts.contact_size() == 0))
+  {
+    this->count++;
   }
-  if (contacts.contact_size() > 0 && this->LastNumConnections==0) {
-    msg.data = 1;
-    std::cout << "Connected" << "\n";
+  if ((this->state == 0 && contacts.contact_size() == 0)||(this->state == 1 && contacts.contact_size() != 0))
+  {
+    this->count = 0;
+  }
+  if (this->count > 10)
+  {
+    this->state = 1 - this->state;
+    std::cout << this->Name <<" state:" << this->state << "\n";
+    msg.data = this->state;
     this->pubContactQueue->push(msg, this->pubContact);
   }
 
-  this->LastNumConnections=contacts.contact_size();
+  // std::cout << this->Name << "Num connections:" << contacts.contact_size()<<"\n";
+  // std::cout << this->Name <<" contact update " << contacts.contact_size()<<"\n";
+  // std::cout << this->Name <<" state:" << this->state << "\n";
+  // std::cout << this->Name <<" count:" << this->count << "\n";
+  // if (contacts.contact_size() == 0 && this->LastNumConnections!=0) {
+  //   msg.data = 0;
+  //   //std::cout << "Disconnected" << "\n";
+  //   this->pubContactQueue->push(msg, this->pubContact);
+  // }
+  // if (contacts.contact_size() > 0 && this->LastNumConnections==0) {
+  //   msg.data = 1;
+  //   //std::cout << "Connected" << "\n";
+  //   this->pubContactQueue->push(msg, this->pubContact);
 }

@@ -84,7 +84,9 @@ class MyContactSensor // : gazebo::sensors::ContactSensor
     public: ros::Publisher pubContact;
     public: PubQueue<std_msgs::Int32>::Ptr pubContactQueue;
 
-    private: int LastNumConnections;
+    //private: int LastNumConnections;
+    private: int state; // 1- contact, 0 -no contact
+    private: int count;
 
 };
 
